@@ -1,0 +1,97 @@
+import feedparser
+from bs4 import BeautifulSoup
+from datetime import datetime
+import markdown2
+
+# -------------------------------
+# CONFIG
+# -------------------------------
+
+CATEGORIES = {
+    "Economy": ["economy", "business", "economic", "invest", "tax", "fbr"],
+    "Economic Issues and Reforms": ["imf", "reform", "subsidy", "budget"],
+    "Agriculture": ["agri", "crop", "wheat", "cotton", "farm","sugar"],
+    "Geopolitics": ["india", "china", "us", "geopolitics", "global"],
+    "National Security": ["terror", "security", "nacta", "military"],
+    "Foreign Policy": ["foreign", "diplomacy", "fm", "iran", "afghan","india"],
+    "Constitutional Law and Judiciary": ["supreme court", "sc", "article", "constitution", "law"],
+    "Gender": ["women", "gender", "harassment","abuse"],
+    "Social Issues": ["poverty", "inflation", "health", "education"]
+}
+
+FEEDS = {
+    "Dawn": [
+        "https://www.dawn.com/feeds/home",
+        "https://www.dawn.com/feeds/latest",
+        "https://www.dawn.com/opinion/feed"
+    ],
+    "Tribune": [
+        "https://tribune.com.pk/feed",
+        "https://tribune.com.pk/opinion/feed"
+    ]
+}
+
+# -------------------------------
+# PARSER
+# -------------------------------
+
+def classify_article(title, summary):
+    text = (title + " " + summary).lower()
+    for category, keywords in CATEGORIES.items():
+        if any(k in text for k in keywords):
+            return category
+    return None
+
+def clean_html(text):
+    return BeautifulSoup(text, "html.parser").get_text()
+
+# -------------------------------
+# MAIN
+# -------------------------------
+
+def generate_newsletter():
+    collected = {cat: [] for cat in CATEGORIES}
+
+    for source, feeds in FEEDS.items():
+        for feed_url in feeds:
+            feed = feedparser.parse(feed_url)
+            for entry in feed.entries:
+                title = entry.title
+                summary = clean_html(entry.get("summary", ""))
+                
+                category = classify_article(title, summary)
+                if category:
+                    collected[category].append({
+                        "source": source,
+                        "title": title,
+                        "summary": summary.strip(),
+                        "link": entry.link
+                    })
+
+    # ---------------------------
+    # FORMAT NEWSLETTER
+    # ---------------------------
+    md = f"# CSS Current Affairs Newsletter – Shahmir Edition\n**Date:** {datetime.now().strftime('%Y-%m-%d')}\n\n"
+
+    for category, articles in collected.items():
+        if not articles:
+            continue
+        md += f"## {category}\n"
+        for a in articles[:4]:  # limit per category
+            md += f"### {a['source']}: {a['title']}\n"
+            md += f"{a['summary']}\n"
+            md += f"[Read more]({a['link']})\n\n"
+
+    return md
+
+# -------------------------------
+# EXPORT TO FILE
+# -------------------------------
+
+if __name__ == "__main__":
+    newsletter_md = generate_newsletter()
+
+    with open("newsletter.md", "w", encoding="utf-8") as f:
+        f.write(newsletter_md)
+
+    print("Newsletter generated: newsletter.md")
