@@ -1,3 +1,5 @@
+feedparser==6.0.11
+
 import streamlit as st
 import feedparser
 from datetime import datetime
